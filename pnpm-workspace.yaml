@@ -1,0 +1,5 @@
+allowBuilds:
+  # Only packages whose install step fetches or builds a native binary.
+  '@parcel/watcher': true
+  '@swc/core': true
+  esbuild: true

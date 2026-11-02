@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Demo App</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        color: #1f2937;
+        background: #f8fafc;
+      }
+      header {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+        padding: 16px 32px;
+        background: #1e293b;
+        color: #fff;
+      }
+      header a {
+        color: #cbd5e1;
+        text-decoration: none;
+      }
+      header a:hover {
+        color: #fff;
+      }
+      .ticker {
+        height: 6px;
+        background: #e2e8f0;
+        overflow: hidden;
+      }
+      .ticker span {
+        display: block;
+        width: 120px;
+        height: 100%;
+        background: #3b82f6;
+        animation: slide 2s linear infinite;
+      }
+      @keyframes slide {
+        from {
+          transform: translateX(-120px);
+        }
+        to {
+          transform: translateX(100vw);
+        }
+      }
+      main {
+        max-width: 720px;
+        margin: 32px auto;
+        padding: 0 16px;
+      }
+      section {
+        margin-bottom: 48px;
+        padding: 24px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      label {
+        display: block;
+        margin: 12px 0 4px;
+        font-weight: 600;
+      }
+      input,
+      select {
+        width: 100%;
+        padding: 8px 12px;
+        font: inherit;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+      }
+      button {
+        margin-top: 16px;
+        padding: 10px 20px;
+        font: inherit;
+        color: #fff;
+        background: #2563eb;
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      #result {
+        margin-top: 16px;
+        padding: 16px;
+        border-radius: 8px;
+        background: #dcfce7;
+        opacity: 0;
+        transform: translateY(8px);
+        transition:
+          opacity 300ms,
+          transform 300ms;
+      }
+      #result.visible {
+        opacity: 1;
+        transform: none;
+      }
+      .tall {
+        height: 1200px;
+      }
+      .details {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition:
+          max-height 300ms,
+          opacity 300ms;
+      }
+      .details.open {
+        max-height: 200px;
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Demo App</strong>
+      <nav>
+        <a href="#create">Create project</a>
+        <a href="#about" style="margin-left: 16px">About</a>
+      </nav>
+    </header>
+    <div class="ticker"><span></span></div>
+    <main>
+      <section id="create">
+        <h1>Create a project</h1>
+        <form id="project-form">
+          <label for="name">Project name</label>
+          <input id="name" name="name" autocomplete="off" />
+          <label for="template">Template</label>
+          <select id="template" name="template">
+            <option value="blank">Blank</option>
+            <option value="kanban">Kanban</option>
+            <option value="roadmap">Roadmap</option>
+          </select>
+          <button type="submit">Create project</button>
+        </form>
+        <div id="result" role="status" hidden></div>
+        <button type="button" id="toggle-details">Show details</button>
+        <div id="details" class="details">
+          <p>Projects keep their tasks, files and history together.</p>
+        </div>
+        <button type="button" id="next-step">Next step</button>
+      </section>
+      <div class="tall"></div>
+      <section id="about">
+        <h2>About</h2>
+        <p>A static page used to test agent-video-recorder.</p>
+      </section>
+    </main>
+    <script>
+      // Timestamps the pacing tests compare.
+      window.__events = []
+      const log = (type) => window.__events.push({ type, t: performance.now() })
+      document
+        .getElementById('toggle-details')
+        .addEventListener('click', () => {
+          log('toggle-click')
+          document.getElementById('details').classList.toggle('open')
+        })
+      document
+        .getElementById('details')
+        .addEventListener('transitionend', (event) => {
+          if (event.propertyName === 'opacity') log('details-transitionend')
+        })
+      document
+        .getElementById('next-step')
+        .addEventListener('click', () => log('next-click'))
+      document
+        .getElementById('project-form')
+        .addEventListener('submit', (event) => {
+          event.preventDefault()
+          const name = document.getElementById('name').value || 'Untitled'
+          const template = document.getElementById('template').value
+          const result = document.getElementById('result')
+          result.classList.remove('visible')
+          result.hidden = true
+          setTimeout(() => {
+            result.textContent = `Project "${name}" created from the ${template} template.`
+            result.hidden = false
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => result.classList.add('visible')),
+            )
+          }, 800)
+        })
+    </script>
+  </body>
+</html>

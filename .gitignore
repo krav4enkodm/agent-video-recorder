@@ -1,0 +1,6 @@
+node_modules/
+dist/
+out-tsc/
+test-output/
+# Default output of `avr record`; videos can show personal data
+/recordings/

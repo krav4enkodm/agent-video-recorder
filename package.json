@@ -1,0 +1,60 @@
+{
+  "name": "agent-video-recorder",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "bin": {
+    "avr": "./bin/avr.cjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./test": {
+      "types": "./src/test.ts",
+      "import": "./src/test.ts",
+      "default": "./src/test.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.62.1 <2"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@swc/core": "^1.16.21",
+    "@swc/jest": "^0.2.39",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.20.5",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "esbuild": "^0.28.2",
+    "jest": "^30.5.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "playwright-core": "1.64.1",
+    "tsx": "^4.23.11"
+  },
+  "description": "Record polished demo videos of web apps from Playwright scripts, built for AI coding agents.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "jest -c jest.config.cts",
+    "test:integration": "jest -c jest.integration.config.cts",
+    "typecheck": "tsc -b",
+    "avr": "node bin/avr.cjs"
+  }
+}
