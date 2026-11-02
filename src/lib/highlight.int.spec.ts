@@ -8,13 +8,12 @@ import {
   type Page,
 } from 'playwright-core'
 
+import { eventually } from '../../test/poll'
 import { Recorder } from './recorder'
 import type { RecorderOptions } from './options'
 
 const FIXTURE_URL = `file://${path.resolve(__dirname, '../../test/fixtures/demo-app.html')}`
 const PAD = 4
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe('Recorder highlights (Chromium + ffmpeg)', () => {
   let browser: Browser
@@ -71,12 +70,10 @@ describe('Recorder highlights (Chromium + ffmpeg)', () => {
     const input = page.getByLabel('Project name')
     const showing = rec.highlight(input, { durationMs: 1000 })
 
-    await sleep(300)
-    await expectFramed(input)
+    await eventually(() => expectFramed(input))
 
     await page.evaluate(() => window.scrollBy(0, 200))
-    await sleep(100)
-    await expectFramed(input)
+    await eventually(() => expectFramed(input))
     await showing
   })
 
@@ -86,8 +83,7 @@ describe('Recorder highlights (Chromium + ffmpeg)', () => {
     const styleBefore = await button.getAttribute('style')
 
     const clicking = rec.click(button)
-    await sleep(200)
-    expect(await highlights()).toHaveLength(1)
+    await eventually(async () => expect(await highlights()).toHaveLength(1))
     const hitId = await button.evaluate((el) => {
       const r = el.getBoundingClientRect()
       return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
@@ -108,15 +104,23 @@ describe('Recorder highlights (Chromium + ffmpeg)', () => {
       pacing: { preset: 'fast', betweenActionsMs: 0 },
     })
     await rec.click(page.getByRole('button', { name: 'Next step' }))
-    await sleep(300)
-    expect(await highlights()).toHaveLength(0)
+    await eventually(async () => expect(await highlights()).toHaveLength(0))
   })
 
   it('draws nothing when highlights are off', async () => {
     const rec = await startRecording({ highlights: false })
-    const clicking = rec.click(page.getByRole('button', { name: 'Next step' }))
-    await sleep(200)
-    expect(await highlights()).toHaveLength(0)
+    let done = false
+    const clicking = rec
+      .click(page.getByRole('button', { name: 'Next step' }))
+      .finally(() => (done = true))
+    // Samples for the whole click, so a highlight drawn at any point fails.
+    const drawn: number[] = []
+    while (!done) {
+      drawn.push((await highlights()).length)
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
     await clicking
+    expect(drawn.length).toBeGreaterThan(0)
+    expect(Math.max(...drawn)).toBe(0)
   })
 })
