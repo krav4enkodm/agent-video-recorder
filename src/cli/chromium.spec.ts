@@ -1,6 +1,7 @@
 import {
   PLAYWRIGHT_VERSION,
   checkChromiumLaunch,
+  doctorChromium,
   ensureChromium,
 } from './chromium'
 
@@ -109,5 +110,76 @@ describe('ensureChromium', () => {
         exists: () => false,
       }),
     ).toThrow('Chromium download failed (exit code 1)')
+  })
+})
+
+describe('doctorChromium', () => {
+  const executablePath = '/cache/ms-playwright/chromium/chrome'
+
+  it('reports a missing Chromium as pending and skips the launch check', async () => {
+    const launch = jest.fn()
+    await expect(
+      doctorChromium({
+        executablePath,
+        allowDownload: true,
+        launch,
+        exists: () => false,
+      }),
+    ).resolves.toBe(`will download on first record to ${executablePath}`)
+    expect(launch).not.toHaveBeenCalled()
+  })
+
+  it('shows the path through the given formatter', async () => {
+    await expect(
+      doctorChromium({
+        executablePath,
+        allowDownload: true,
+        launch: jest.fn(),
+        exists: () => false,
+        displayPath: (file) => file.replace('/cache', '~'),
+      }),
+    ).resolves.toBe(
+      'will download on first record to ~/ms-playwright/chromium/chrome',
+    )
+  })
+
+  it('fails naming avr install when downloads are disabled', async () => {
+    const launch = jest.fn()
+    await expect(
+      doctorChromium({
+        executablePath,
+        allowDownload: false,
+        launch,
+        exists: () => false,
+      }),
+    ).rejects.toThrow(
+      `Not installed at ${executablePath}. Run \`avr install\`.`,
+    )
+    expect(launch).not.toHaveBeenCalled()
+  })
+
+  it('launches an installed Chromium and reports nothing extra', async () => {
+    const close = jest.fn().mockResolvedValue(undefined)
+    const launch = jest.fn().mockResolvedValue({ close })
+    await expect(
+      doctorChromium({
+        executablePath,
+        allowDownload: false,
+        launch,
+        exists: () => true,
+      }),
+    ).resolves.toBeUndefined()
+    expect(close).toHaveBeenCalled()
+  })
+
+  it('maps launch failures of an installed Chromium to the install-deps hint', async () => {
+    await expect(
+      doctorChromium({
+        executablePath,
+        allowDownload: true,
+        launch: jest.fn().mockRejectedValue(new Error(MISSING_DEPS)),
+        exists: () => true,
+      }),
+    ).rejects.toThrow('Missing system libraries. Run: sudo npx')
   })
 })

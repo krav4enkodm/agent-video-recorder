@@ -206,6 +206,7 @@ with `avr record`:
 ```bash
 avr record <scenario> [--out <file>] [--resolution 720p|1080p|1440p] [--scale 1|2]
                       [--fps 30|60] [--pacing fast|normal|slow] [--base-url <url>]
+avr contact-sheet <video> --out <png> [--every 2] [--cols 3]
 avr doctor
 ```
 
@@ -223,11 +224,18 @@ scenario's `recorder` field. On success the last stdout line is the
 `RecordingResult` as JSON. On failure the CLI exits 1, prints
 `error: <CODE>: <message>` and keeps a partial video.
 
+`avr contact-sheet` writes one PNG of frames from a video, sampled every
+`--every` seconds (default 2), scaled to 640 px wide and tiled `--cols` wide
+(default 3) and at most 5 rows high. It uses the same ffmpeg as recording and
+prints the PNG's absolute path.
+
 The CLI always launches headless Chromium. The page uses `deviceScaleFactor`
 equal to `scale`, and the context has no other options. Do sign-in, cookies and
 seed data in `setup`. Use `avr doctor` to check for ffmpeg with libx264 and for
 Chromium. It prints which ffmpeg it found (`option`, `env`, `path` or
-`bundled`) and never downloads. `avr install` downloads the static ffmpeg when
+`bundled`) and never downloads: a missing static ffmpeg or Chromium that
+`avr record` would download is reported as `ok (… will download on first
+record …)`, and as a failure with `AVR_NO_DOWNLOAD=1`. `avr install` downloads the static ffmpeg when
 no system one passes, even with `AVR_NO_DOWNLOAD=1`.
 
 ## Playwright test fixture

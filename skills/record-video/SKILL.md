@@ -1,15 +1,20 @@
 ---
 name: record-video
-description: Record a polished MP4 walkthrough of a web app with agent-video-recorder (smooth cursor, click effects, highlights, captions, natural pacing) by writing a scenario file and running the `avr` CLI. Use when someone asks to record a video, screencast or MP4 demo of a web app or feature. Triggers: "/record-video", "record a video of X", "make an MP4 walkthrough", "screencast this flow".
+description: Record a polished MP4 walkthrough of a web app with agent-video-recorder (smooth cursor, click effects, highlights, captions, natural pacing) by writing a scenario file and running the agent-video-recorder CLI through npx. Use when someone asks to record a video, screencast or MP4 demo of a web app or feature. Triggers: "/record-video", "record a video of X", "make an MP4 walkthrough", "screencast this flow".
 argument-hint: "What to show, and the app URL if it isn't obvious"
 user-invocable: true
 ---
 
 # Record a video
 
-You write a short scenario file, run it with the `avr` CLI in headless
-Chromium, check the result yourself and hand over an MP4. The user never
-touches the browser.
+You write a short scenario file, run it with the agent-video-recorder CLI in
+headless Chromium, check the result yourself and hand over an MP4. The user
+never touches the browser.
+
+Every command runs the CLI through `npx -y agent-video-recorder@0.1`, so
+nothing needs installing first. The first run downloads the CLI, the Chromium
+build it needs (about 170 MB) and, if the machine has no ffmpeg with libx264,
+a static ffmpeg (about 30 MB). Later runs reuse them.
 
 **If the project has its own demo skill** (for example one that knows its test
 accounts and personal-data rules), use that instead. `record-video` is the
@@ -25,9 +30,11 @@ full: if one fails and can't be fixed, report that instead of the video.
 
 - The app must be reachable (e.g. `curl -sI http://localhost:3000`). If it
   isn't, ask the user to start it rather than guessing how.
-- Run `avr doctor`. Both checks must say `ok`; otherwise follow the hint it
-  prints. If `avr` isn't on PATH, tell the user to install it (see the
-  package README) rather than adding it to the project.
+- Run `npx -y agent-video-recorder@0.1 doctor`. Lines starting with `ok`
+  need nothing, including ones that say a download happens on the first
+  record. For a `fail` line, show it to the user with the command it
+  suggests (for missing Linux libraries that runs `sudo`) and wait for them
+  to fix it.
 
 ## 2. Propose a storyboard
 
@@ -96,7 +103,7 @@ Rules:
 ## 4. Record
 
 ```bash
-avr record <scratch>/<name>.scenario.ts --out <scratch>/<name>.mp4
+npx -y agent-video-recorder@0.1 record <scratch>/<name>.scenario.ts --out <scratch>/<name>.mp4
 ```
 
 Options: `--resolution 720p|1080p|1440p` (default 1080p), `--scale 2` (same
@@ -111,19 +118,25 @@ Fix the scenario using the table below and record again.
 | `SCENARIO_INVALID` | File missing, or no default export with a `run` function |
 | `SCENARIO_FAILED` | `setup` or `run` threw: read the message (usually a locator that matched nothing or a timeout), check the partial video, fix the step |
 | `INVALID_OPTIONS` | Bad flag or `recorder` option value; the message names it |
-| `FFMPEG_NOT_FOUND` / `FFMPEG_NO_H264` | Install ffmpeg with libx264, or set `AVR_FFMPEG_PATH` |
+| `CHROMIUM_NOT_FOUND` | Chromium couldn't be downloaded or started; the message says why (often missing Linux libraries, as in step 1) |
+| `FFMPEG_NOT_FOUND` / `FFMPEG_NO_H264` / `FFMPEG_DOWNLOAD_FAILED` | No usable ffmpeg and the download failed or is off (`AVR_NO_DOWNLOAD=1`). Install ffmpeg with libx264, or set `AVR_FFMPEG_PATH` |
 | `FFMPEG_FAILED` | Encoder crashed; the message includes ffmpeg's output |
 | `NO_FRAMES` | Chromium sent no frames: the page never rendered. Check the URL and that the app is up |
 | `ALREADY_STARTED` / `NOT_STARTED` | The scenario called `start()`/`stop()`; remove those calls |
 
 ## 5. Check the video yourself
 
+Check `durationMs`, `width` and `height` in the result JSON from step 4
+against what you planned. Then make a contact sheet, one frame every 2
+seconds on a 3-column grid:
+
 ```bash
-ffprobe -v error -show_entries format=duration:stream=codec_name,width,height -of compact <video>.mp4
-ffmpeg -v error -y -i <video>.mp4 -vf "fps=1/2,scale=640:-1,tile=3x5" -frames:v 1 <scratch>/sheet.png
+npx -y agent-video-recorder@0.1 contact-sheet <scratch>/<name>.mp4 --out <scratch>/sheet.png
 ```
 
-Look at the contact sheet image and check that:
+It prints the PNG path. `--every <seconds>` and `--cols <n>` change the grid;
+it holds at most 5 rows, so for a video longer than about 30 seconds raise
+`--every` to cover all of it. Look at the image and check that:
 
 - each caption matches what happens beneath it;
 - results the captions mention (dialogs, toasts, new rows) are visible;
