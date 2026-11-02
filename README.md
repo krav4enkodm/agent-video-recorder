@@ -205,3 +205,5 @@ pnpm typecheck
 pnpm test               # unit tests
 pnpm test:integration   # launches Chromium and ffmpeg
 ```
+
+Releases are cut by pushing a version tag; see [docs/releasing.md](docs/releasing.md).

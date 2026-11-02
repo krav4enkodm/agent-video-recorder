@@ -1,0 +1,156 @@
+name: Release
+
+# Pushing a v* tag runs CI on Linux, checks the versions, publishes to npm
+# through trusted publishing (OIDC, no token in secrets), creates a GitHub
+# Release, then runs the published package through npx on Linux and macOS.
+# See docs/releasing.md.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Stop at `npm publish --dry-run`. A real publish from here also needs a tag picked as the ref.
+        type: boolean
+        default: true
+      smoke_version:
+        description: Only run the npx smoke test against this published version (e.g. 0.1.0); skips everything else.
+        type: string
+        default: ''
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Trusted publishing needs npm >= 11.5.1; Node 22's bundled npm is 10.x.
+  NPM_VERSION: 11.21.1
+  # Pushed tags always publish; manual runs publish only with dry_run unticked.
+  PUBLISH: ${{ github.event_name == 'push' || inputs.dry_run == false }}
+
+jobs:
+  version:
+    if: inputs.smoke_version == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Refuse a real publish from a branch
+        if: env.PUBLISH == 'true' && github.ref_type != 'tag'
+        run: |
+          echo "::error::A real publish must run on a v* tag, not ${{ github.ref }}."
+          exit 1
+      # On a tag: tag == v + package.json version. On a branch dry run: the
+      # three version files agree.
+      - env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: node scripts/check-release-version.mjs ${TAG:+"$TAG"}
+
+  checks:
+    if: inputs.smoke_version == ''
+    uses: ./.github/workflows/ci.yml
+    with:
+      os: '["ubuntu-latest"]'
+
+  publish:
+    needs: [version, checks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) and provenance
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@${{ env.NPM_VERSION }}
+      - run: npm --version
+      - run: pnpm install --frozen-lockfile
+      - id: meta
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # A version published by hand (the first one, before trusted
+          # publishing could be set up) is skipped, so the release still runs.
+          if npm view "agent-video-recorder@$version" version >/dev/null 2>&1; then
+            echo "::notice::agent-video-recorder@$version is already on npm; skipping npm publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+      # prepack runs `pnpm build`. Provenance is automatic with trusted
+      # publishing; --provenance only makes it explicit.
+      - name: npm publish --dry-run
+        if: env.PUBLISH != 'true'
+        run: npm publish --access public --provenance --dry-run
+      - name: npm publish
+        if: env.PUBLISH == 'true' && steps.meta.outputs.exists != 'true'
+        run: npm publish --access public --provenance
+
+  github-release:
+    needs: publish
+    if: github.event_name == 'push' || inputs.dry_run == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "$TAG"
+
+  # Runs the published package from an empty folder with no global avr, the
+  # way the plugin's skill does. No system ffmpeg on macOS, so this also covers
+  # the ffmpeg download fallback.
+  npx-smoke:
+    needs: [publish]
+    if: >-
+      always() && (inputs.smoke_version != '' ||
+      ((github.event_name == 'push' || inputs.dry_run == false) && needs.publish.result == 'success'))
+    name: npx smoke (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      VERSION: ${{ inputs.smoke_version || needs.publish.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: test/fixtures
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Wait for the version on the registry
+        run: |
+          for _ in $(seq 1 30); do
+            npm view "agent-video-recorder@$VERSION" version && exit 0
+            sleep 10
+          done
+          echo "::error::agent-video-recorder@$VERSION is not on the registry"
+          exit 1
+      - name: Record through npx
+        run: |
+          dir="$RUNNER_TEMP/avr-smoke"
+          mkdir -p "$dir"
+          cp test/fixtures/smoke.scenario.ts test/fixtures/demo-app.html "$dir/"
+          cd "$dir"
+          if [ "$RUNNER_OS" = Linux ]; then
+            npx -y "agent-video-recorder@$VERSION" install --with-deps
+          fi
+          npx -y "agent-video-recorder@$VERSION" record smoke.scenario.ts --out out.mp4
+          test -s out.mp4
+          ls -l out.mp4
