@@ -29,6 +29,9 @@ record: avr uses a prebuilt static ffmpeg instead of failing with
   leave it `undefined` when not set. `ResolvedOptions.ffmpegPath` becomes optional.
 - `src/lib/recorder.ts:79-80`: replace `checkFfmpeg(ffmpegPath)` with
   `resolveFfmpeg(...)` and pass the resolved path to capture.
+- `AVR_CACHE_DIR` env var overrides the cache directory (documented in
+  `docs/configuration.md`). Tests use it for a temp cache; overriding `HOME`
+  instead would also move Playwright's Chromium cache on macOS.
 - `RecorderOptions.ffmpegDownload?: boolean` (default `true`); env
   `AVR_NO_DOWNLOAD=1` disables both this and 04's Chromium download.
 - `avr doctor` (`src/cli/main.ts:150`): print which source is used,
