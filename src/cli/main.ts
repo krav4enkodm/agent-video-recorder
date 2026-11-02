@@ -1,14 +1,20 @@
 import { spawnSync } from 'child_process'
 import * as fs from 'fs'
 import { createRequire } from 'module'
+import * as os from 'os'
 import * as path from 'path'
 
 import { Command } from 'commander'
 import { chromium } from 'playwright-core'
 
-import { checkFfmpeg } from '../lib/encoder/ffmpeg'
+import {
+  bundledFfmpegPath,
+  downloadsDisabled,
+  resolveFfmpeg,
+  staticBuildFor,
+} from '../lib/encoder/resolve-ffmpeg'
 import { RecorderError } from '../lib/errors'
-import { resolveOptions, resolveSize } from '../lib/options'
+import { resolveSize } from '../lib/options'
 import { Recorder } from '../lib/recorder'
 import { isScenario, type Scenario } from '../lib/scenario'
 import { VERSION } from '../lib/version'
@@ -49,10 +55,12 @@ export async function main(argv: string[]): Promise<number> {
   program
     .command('install')
     .description(
-      'Download the Chromium build that matches the bundled Playwright version.',
+      'Download the Chromium build that matches the bundled Playwright version, and a static ffmpeg if no system one has libx264.',
     )
-    .action(() => {
-      exitCode = install()
+    .action(async () => {
+      const chromiumCode = install()
+      const ffmpegCode = await installFfmpeg()
+      exitCode = chromiumCode || ffmpegCode
     })
 
   program
@@ -160,10 +168,48 @@ function install(): number {
   return result.status ?? 1
 }
 
+// `avr install` is an explicit request to download, so AVR_NO_DOWNLOAD doesn't apply.
+async function installFfmpeg(): Promise<number> {
+  const env = { ...process.env, AVR_NO_DOWNLOAD: undefined }
+  try {
+    const ffmpeg = await resolveFfmpeg({ env, allowDownload: true })
+    process.stderr.write(`ffmpeg: ${describeFfmpeg(ffmpeg)}\n`)
+    return 0
+  } catch (error) {
+    reportError(error, 'FFMPEG_NOT_FOUND')
+    return 1
+  }
+}
+
+/** Never downloads: reports the static build as pending when it's the only option. */
+async function doctorFfmpeg(): Promise<string> {
+  const env = process.env
+  try {
+    return describeFfmpeg(await resolveFfmpeg({ env, allowDownload: false }))
+  } catch (error) {
+    const canDownload =
+      error instanceof RecorderError &&
+      error.code === 'FFMPEG_NOT_FOUND' &&
+      !env['AVR_FFMPEG_PATH'] &&
+      !downloadsDisabled(env) &&
+      staticBuildFor() !== undefined
+    if (!canDownload) throw error
+    return `bundled, will download on first record to ${tildify(bundledFfmpegPath(env))}`
+  }
+}
+
+function describeFfmpeg(ffmpeg: { path: string; source: string }): string {
+  return `${ffmpeg.source}, ${tildify(ffmpeg.path)}`
+}
+
+function tildify(file: string): string {
+  const home = os.homedir()
+  return file.startsWith(home + path.sep) ? `~${file.slice(home.length)}` : file
+}
+
 async function doctor(): Promise<number> {
-  const { ffmpegPath } = resolveOptions({})
-  const checks: Array<[string, () => Promise<void>]> = [
-    ['ffmpeg with libx264', () => checkFfmpeg(ffmpegPath)],
+  const checks: Array<[string, () => Promise<string | void>]> = [
+    ['ffmpeg with libx264', doctorFfmpeg],
     [
       'Chromium for Playwright',
       async () => {
@@ -179,8 +225,8 @@ async function doctor(): Promise<number> {
   let failed = 0
   for (const [name, check] of checks) {
     try {
-      await check()
-      process.stdout.write(`ok    ${name}\n`)
+      const detail = await check()
+      process.stdout.write(`ok    ${name}${detail ? ` (${detail})` : ''}\n`)
     } catch (error) {
       failed++
       process.stdout.write(`fail  ${name}: ${messageOf(error)}\n`)

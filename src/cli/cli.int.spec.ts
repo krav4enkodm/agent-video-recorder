@@ -13,12 +13,16 @@ interface Run {
   stderr: string
 }
 
-function avr(args: string[], env: NodeJS.ProcessEnv = {}): Promise<Run> {
+function avr(
+  args: string[],
+  env: NodeJS.ProcessEnv = {},
+  timeout = 90_000,
+): Promise<Run> {
   return new Promise((resolve) => {
     execFile(
-      'node',
+      process.execPath,
       [BIN, ...args],
-      { cwd: PACKAGE_ROOT, env: { ...process.env, ...env }, timeout: 90_000 },
+      { cwd: PACKAGE_ROOT, env: { ...process.env, ...env }, timeout },
       (error, stdout, stderr) => {
         const code = error ? Number(error.code ?? 1) : 0
         resolve({ code, stdout, stderr })
@@ -102,6 +106,40 @@ describe('avr CLI', () => {
     expect(run.stdout).toContain('fail  ffmpeg with libx264: FFMPEG_NOT_FOUND')
     expect(run.stdout).toContain('ok    Chromium for Playwright')
   })
+
+  it('downloads a static ffmpeg when PATH has none, then records with it', async () => {
+    // A PATH with no ffmpeg, and a temp cache so the real ~/.cache is untouched.
+    const emptyBin = fs.mkdtempSync(path.join(os.tmpdir(), 'avr-nopath-'))
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), 'avr-cache-'))
+    const env = { PATH: emptyBin, AVR_CACHE_DIR: cache, AVR_FFMPEG_PATH: '' }
+    try {
+      const before = await avr(['doctor'], env)
+      expect(before.stdout).toContain(
+        'ok    ffmpeg with libx264 (bundled, will download on first record',
+      )
+
+      const out = path.join(outDir, 'fallback.mp4')
+      const run = await avr(
+        ['record', path.join(FIXTURES, 'demo.scenario.ts'), '--out', out],
+        env,
+        240_000,
+      )
+      expect(run.stderr).toContain('Downloading ffmpeg (one-time, ~')
+      expect(run.code).toBe(0)
+      // stdout is only the result JSON; download progress went to stderr.
+      expect(run.stdout.trim().split('\n')).toHaveLength(1)
+      expect(JSON.parse(run.stdout)).toMatchObject({ path: out })
+      expect(probe(out).codec_name).toBe('h264')
+
+      const after = await avr(['doctor'], env)
+      expect(after.stdout).toContain(
+        `ok    ffmpeg with libx264 (bundled, ${path.join(cache, 'ffmpeg-b6.1.1-')}`,
+      )
+    } finally {
+      fs.rmSync(emptyBin, { recursive: true, force: true })
+      fs.rmSync(cache, { recursive: true, force: true })
+    }
+  }, 300_000)
 
   it('records through the Playwright test fixture', () => {
     const fixtureOut = path.join(outDir, 'fixture')

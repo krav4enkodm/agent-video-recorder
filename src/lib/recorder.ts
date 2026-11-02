@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { Capture, type RecordingResult } from './capture'
-import { checkFfmpeg } from './encoder/ffmpeg'
+import { resolveFfmpeg } from './encoder/resolve-ffmpeg'
 import { RecorderError } from './errors'
 import { type Point } from './motion/path'
 import {
@@ -76,8 +76,12 @@ export class Recorder {
       )
     }
     this.assertChromium()
-    const { size, videoSize, fps, quality, ffmpegPath } = this.options
-    await checkFfmpeg(ffmpegPath)
+    const { size, videoSize, fps, quality } = this.options
+    const ffmpeg = await resolveFfmpeg({
+      explicit: this.options.ffmpegPath,
+      env: process.env,
+      allowDownload: this.options.ffmpegDownload,
+    })
 
     const viewport = this.page.viewportSize()
     if (viewport?.width !== size.width || viewport?.height !== size.height) {
@@ -98,7 +102,7 @@ export class Recorder {
         size: videoSize,
         fps,
         quality,
-        ffmpegPath,
+        ffmpegPath: ffmpeg.path,
       })
     } catch (error) {
       this.page.off('framenavigated', this.onNavigated)
