@@ -88,7 +88,10 @@ describe('Recorder (Chromium + ffmpeg)', () => {
         colorRange: 'tv',
         avgFrameRate: `${fps}/1`,
       })
-      expect(video.durationSec).toBeGreaterThan(2.7)
+      // The file matches what stop() reports, to the frame.
+      expect(video.durationSec).toBeCloseTo(result.durationMs / 1000, 1)
+      // Loose wall-clock bounds: a loaded runner delivers the first frame late.
+      expect(video.durationSec).toBeGreaterThan(2.5)
       expect(video.durationSec).toBeLessThan(3.3)
       expect(result).toMatchObject({
         path: output,

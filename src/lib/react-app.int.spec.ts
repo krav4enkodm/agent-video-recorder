@@ -41,12 +41,14 @@ describe('Recorder on a single-page React app (Chromium + ffmpeg)', () => {
     await recorder.type(dialog.getByLabel('Project name'), 'Recorded')
     await recorder.click(dialog.getByRole('button', { name: 'Create project' }))
     await recorder.waitFor(page.getByRole('status'))
-    await recorder.stop({ holdMs: 0 })
-
+    // The toast auto-dismisses after 4 s, so read it before stop() spends time
+    // finalising the video on a slow runner.
     await expect(page.getByRole('status').textContent()).resolves.toContain(
       'Project “Recorded” created',
     )
     await expect(dialog.count()).resolves.toBe(0)
+    await recorder.stop({ holdMs: 0 })
+
     expect(navigations).toBe(0)
     await page.close()
   })
