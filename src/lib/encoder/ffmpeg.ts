@@ -37,6 +37,10 @@ export function buildFfmpegArgs(fps: number, output: string): string[] {
   ]
 }
 
+export const FFMPEG_INSTALL_HINT =
+  'Install ffmpeg with libx264 (e.g. `apt install ffmpeg`, `pacman -S ffmpeg`, ' +
+  '`brew install ffmpeg`) or set AVR_FFMPEG_PATH / the ffmpegPath option.'
+
 export async function checkFfmpeg(ffmpegPath: string): Promise<void> {
   const stdout = await new Promise<string>((resolve, reject) => {
     execFile(ffmpegPath, ['-hide_banner', '-encoders'], (error, out) => {
@@ -47,8 +51,7 @@ export async function checkFfmpeg(ffmpegPath: string): Promise<void> {
     throw new RecorderError(
       'FFMPEG_NOT_FOUND',
       `Could not run ffmpeg at "${ffmpegPath}" (${error.code ?? error.message}). ` +
-        'Install ffmpeg with libx264 (e.g. `apt install ffmpeg`, `pacman -S ffmpeg`, ' +
-        '`brew install ffmpeg`) or set AVR_FFMPEG_PATH / the ffmpegPath option.',
+        FFMPEG_INSTALL_HINT,
     )
   })
   if (!/\blibx264\b/.test(stdout)) {

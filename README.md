@@ -125,7 +125,10 @@ ln -s ~/Projects/agent-video-recorder/skills/record-video ~/.claude/skills/recor
 
 - Node.js 22
 - Chromium for the bundled `playwright-core` (pinned), installed with `avr install`
-- `ffmpeg` with the `libx264` encoder on `PATH`, or set `AVR_FFMPEG_PATH`
+- Optional: `ffmpeg` with the `libx264` encoder on `PATH`, or set `AVR_FFMPEG_PATH`.
+  Without one, avr downloads a static ffmpeg build (GPL, ~20–30 MB) to its cache
+  on first record (Linux and macOS, x64 and arm64). `AVR_NO_DOWNLOAD=1` turns
+  that off.
 
 ## Recording performance
 

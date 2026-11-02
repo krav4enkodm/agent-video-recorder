@@ -11,7 +11,7 @@ Options can be set in four places. Later ones win:
 3. Per-call options on the action methods (`click`, `narrate`, …), which apply to
    that call only.
 4. The `AVR_FFMPEG_PATH` environment variable is used only when `ffmpegPath` is
-   not set.
+   not set. See [Environment](#environment) for the other variables.
 
 ## Recorder options
 
@@ -25,7 +25,8 @@ Options can be set in four places. Later ones win:
 | `fps` | `30 \| 60` | `60` | Output frame rate. The video is constant frame rate. |
 | `output` | `string` | `./recordings/recording-<YYYYMMDD-HHmmss>.mp4` | MP4 path, resolved against the current directory. Missing folders are created. |
 | `quality` | integer 1–100 | `90` | JPEG quality of the frames Chromium sends before H.264 encoding. `100` removes most of that loss at the cost of throughput. |
-| `ffmpegPath` | `string` | `$AVR_FFMPEG_PATH`, then `ffmpeg` | Must be an ffmpeg build with libx264. Playwright's bundled ffmpeg has only VP8. |
+| `ffmpegPath` | `string` | `$AVR_FFMPEG_PATH`, then `ffmpeg` on `PATH`, then a downloaded static build | Must be an ffmpeg build with libx264. Playwright's bundled ffmpeg has only VP8. A binary set here or in `$AVR_FFMPEG_PATH` that fails the check is an error (`FFMPEG_NOT_FOUND` or `FFMPEG_NO_H264`), never a fallback. When no `ffmpeg` on `PATH` has libx264, `start()` downloads the GPL static build [`eugeneware/ffmpeg-static` `b6.1.1`](https://github.com/eugeneware/ffmpeg-static/releases/tag/b6.1.1) once (about 20–30 MB, Linux and macOS, x64 and arm64), checks its SHA-256 and caches it in `$XDG_CACHE_HOME/agent-video-recorder` (default `~/.cache/…`) on Linux or `~/Library/Caches/agent-video-recorder` on macOS. Progress goes to stderr. A failed download throws `FFMPEG_DOWNLOAD_FAILED`. |
+| `ffmpegDownload` | `boolean` | `true` | `false` turns off the static ffmpeg download; `start()` then throws `FFMPEG_NOT_FOUND` when no other ffmpeg works. |
 | `cursor` | `'smooth' \| false \| CursorStyle` | `'smooth'` | `false` hides the animated cursor. |
 | `clickEffect` | `false \| ClickEffectStyle` | on | Ring shown on every click. `false` disables it. |
 | `highlights` | `'subtle' \| 'strong' \| false \| HighlightStyle` | `'subtle'` | Frame drawn around each element the recorder acts on. |
@@ -225,7 +226,9 @@ scenario's `recorder` field. On success the last stdout line is the
 The CLI always launches headless Chromium. The page uses `deviceScaleFactor`
 equal to `scale`, and the context has no other options. Do sign-in, cookies and
 seed data in `setup`. Use `avr doctor` to check for ffmpeg with libx264 and for
-Chromium.
+Chromium. It prints which ffmpeg it found (`option`, `env`, `path` or
+`bundled`) and never downloads. `avr install` downloads the static ffmpeg when
+no system one passes, even with `AVR_NO_DOWNLOAD=1`.
 
 ## Playwright test fixture
 
@@ -242,6 +245,8 @@ settings, create `new Recorder(page, { ... })` in the test.
 | Variable | Used for |
 |---|---|
 | `AVR_FFMPEG_PATH` | ffmpeg binary, when the `ffmpegPath` option is not set |
+| `AVR_NO_DOWNLOAD` | `1` turns off automatic downloads: the static ffmpeg (like `ffmpegDownload: false`) and Chromium on the first `avr record`. Recording then fails with an error instead. |
+| `AVR_CACHE_DIR` | Directory for the downloaded static ffmpeg, instead of `~/.cache/agent-video-recorder` (Linux, or `$XDG_CACHE_HOME/agent-video-recorder`) or `~/Library/Caches/agent-video-recorder` (macOS) |
 
 ## Not configurable
 

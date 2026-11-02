@@ -3,6 +3,7 @@ export type RecorderErrorCode =
   | 'FFMPEG_NOT_FOUND'
   | 'FFMPEG_NO_H264'
   | 'FFMPEG_FAILED'
+  | 'FFMPEG_DOWNLOAD_FAILED'
   | 'UNSUPPORTED_BROWSER'
   | 'ALREADY_STARTED'
   | 'NOT_STARTED'

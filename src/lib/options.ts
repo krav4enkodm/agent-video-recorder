@@ -68,8 +68,17 @@ export interface RecorderOptions {
   output?: string
   /** JPEG quality (1–100) of the captured frames. Defaults to 90. */
   quality?: number
-  /** ffmpeg binary with libx264. Defaults to `$AVR_FFMPEG_PATH` or `ffmpeg`. */
+  /**
+   * ffmpeg binary with libx264. Defaults to `$AVR_FFMPEG_PATH`, then `ffmpeg`
+   * on PATH, then a static build avr downloads to its cache. A path set here or
+   * in `$AVR_FFMPEG_PATH` that fails the libx264 check is an error, not a fallback.
+   */
   ffmpegPath?: string
+  /**
+   * Download a static ffmpeg build when no other one works. Defaults to `true`;
+   * `AVR_NO_DOWNLOAD=1` turns it off.
+   */
+  ffmpegDownload?: boolean
   /** Animated cursor. `false` hides it. Defaults to `'smooth'`. */
   cursor?: 'smooth' | false | CursorStyle
   /** Ripple shown on clicks. `false` disables it. On by default. */
@@ -90,7 +99,9 @@ export interface ResolvedRecorderOptions {
   fps: Fps
   output: string | undefined
   quality: number
-  ffmpegPath: string
+  /** The `ffmpegPath` option; `$AVR_FFMPEG_PATH` and fallbacks are resolved at `start()`. */
+  ffmpegPath?: string
+  ffmpegDownload: boolean
   overlay: OverlayConfig
   timing: Timing
   narration: NarrationStyle
@@ -141,7 +152,6 @@ export function resolveSize(resolution: ResolutionPreset | Size): Size {
 
 export function resolveOptions(
   options: RecorderOptions,
-  env: Record<string, string | undefined> = process.env,
 ): ResolvedRecorderOptions {
   const fps = options.fps ?? DEFAULT_FPS
   if (fps !== 30 && fps !== 60) {
@@ -171,7 +181,8 @@ export function resolveOptions(
     fps,
     output: options.output,
     quality,
-    ffmpegPath: options.ffmpegPath ?? env['AVR_FFMPEG_PATH'] ?? 'ffmpeg',
+    ffmpegPath: options.ffmpegPath,
+    ffmpegDownload: options.ffmpegDownload ?? true,
     overlay: {
       cursor: resolveCursor(options.cursor ?? 'smooth'),
       clickEffect:

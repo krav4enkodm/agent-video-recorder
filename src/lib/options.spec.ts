@@ -35,13 +35,14 @@ describe('resolveSize', () => {
 
 describe('resolveOptions', () => {
   it('applies defaults', () => {
-    expect(resolveOptions({}, {})).toEqual({
+    expect(resolveOptions({})).toEqual({
       size: { width: 1920, height: 1080 },
       videoSize: { width: 1920, height: 1080 },
       fps: 60,
       output: undefined,
       quality: 90,
-      ffmpegPath: 'ffmpeg',
+      ffmpegPath: undefined,
+      ffmpegDownload: true,
       overlay: {
         cursor: { size: 24, color: '#111', outline: '#fff' },
         clickEffect: {
@@ -63,34 +64,30 @@ describe('resolveOptions', () => {
   })
 
   it('keeps the layout size and doubles the video size at scale 2', () => {
-    const resolved = resolveOptions({ resolution: '1080p', scale: 2 }, {})
+    const resolved = resolveOptions({ resolution: '1080p', scale: 2 })
     expect(resolved.size).toEqual({ width: 1920, height: 1080 })
     expect(resolved.videoSize).toEqual({ width: 3840, height: 2160 })
   })
 
   it('rejects an unsupported scale', () => {
     // @ts-expect-error -- 3 is outside Scale; checks the runtime guard for JS callers
-    expect(() => resolveOptions({ scale: 3 }, {})).toThrow(
+    expect(() => resolveOptions({ scale: 3 })).toThrow(
       expect.objectContaining({ code: 'INVALID_OPTIONS' }),
     )
   })
 
-  it('takes ffmpeg from AVR_FFMPEG_PATH unless the option is set', () => {
-    expect(
-      resolveOptions({}, { AVR_FFMPEG_PATH: '/opt/ffmpeg' }).ffmpegPath,
-    ).toBe('/opt/ffmpeg')
-    expect(
-      resolveOptions({ ffmpegPath: '/x' }, { AVR_FFMPEG_PATH: '/opt/ffmpeg' })
-        .ffmpegPath,
-    ).toBe('/x')
+  it('leaves ffmpegPath unset so start() can resolve env, PATH and the download', () => {
+    expect(resolveOptions({}).ffmpegPath).toBeUndefined()
+    expect(resolveOptions({ ffmpegPath: '/x' }).ffmpegPath).toBe('/x')
+    expect(resolveOptions({ ffmpegDownload: false }).ffmpegDownload).toBe(false)
   })
 
   it('rejects unsupported fps and quality', () => {
     // @ts-expect-error JavaScript callers can pass any number.
-    expect(() => resolveOptions({ fps: 25 }, {})).toThrow(
+    expect(() => resolveOptions({ fps: 25 })).toThrow(
       expect.objectContaining({ code: 'INVALID_OPTIONS' }),
     )
-    expect(() => resolveOptions({ quality: 0 }, {})).toThrow(
+    expect(() => resolveOptions({ quality: 0 })).toThrow(
       expect.objectContaining({ code: 'INVALID_OPTIONS' }),
     )
   })
@@ -100,7 +97,6 @@ describe('overlay options', () => {
   it('merges partial styles over the defaults', () => {
     const { overlay } = resolveOptions(
       { cursor: { size: 32 }, clickEffect: { color: 'red' } },
-      {},
     )
     expect(overlay.cursor).toEqual({ size: 32, color: '#111', outline: '#fff' })
     expect(overlay.clickEffect).toMatchObject({ color: 'red', durationMs: 500 })
@@ -110,7 +106,6 @@ describe('overlay options', () => {
     expect(
       resolveOptions(
         { cursor: false, clickEffect: false, highlights: false },
-        {},
       ).overlay,
     ).toEqual({ cursor: false, clickEffect: false, highlight: false })
   })
