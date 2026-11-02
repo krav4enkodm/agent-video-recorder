@@ -1,0 +1,19 @@
+{
+  "name": "agent-video-recorder",
+  "description": "Record polished MP4 walkthroughs of web apps (smooth cursor, click effects, highlights, captions) with the record-video skill, which runs the agent-video-recorder CLI through npx.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Dmytro Kravchenko"
+  },
+  "homepage": "https://github.com/krav4enkodm/agent-video-recorder#readme",
+  "repository": "https://github.com/krav4enkodm/agent-video-recorder",
+  "license": "MIT",
+  "keywords": [
+    "video",
+    "screencast",
+    "demo",
+    "recording",
+    "mp4",
+    "playwright"
+  ]
+}

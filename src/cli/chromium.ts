@@ -37,6 +37,36 @@ export function ensureChromium(deps: EnsureChromiumDeps): void {
   }
 }
 
+export interface DoctorChromiumDeps {
+  executablePath: string
+  /** False when `AVR_NO_DOWNLOAD=1`. */
+  allowDownload: boolean
+  launch: () => Promise<{ close: () => Promise<void> }>
+  exists?: (file: string) => boolean
+  displayPath?: (file: string) => string
+}
+
+/**
+ * The `avr doctor` Chromium check. Never downloads: a missing Chromium that
+ * `avr record` would download is reported as pending, without a launch check.
+ * Returns the detail to show after `ok`, if any.
+ */
+export async function doctorChromium(
+  deps: DoctorChromiumDeps,
+): Promise<string | void> {
+  const exists = deps.exists ?? fs.existsSync
+  const display = deps.displayPath ?? ((file: string) => file)
+  if (!exists(deps.executablePath)) {
+    if (deps.allowDownload) {
+      return `will download on first record to ${display(deps.executablePath)}`
+    }
+    throw new Error(
+      `Not installed at ${display(deps.executablePath)}. Run \`avr install\`.`,
+    )
+  }
+  await checkChromiumLaunch(deps.launch)
+}
+
 /**
  * Launches headless Chromium and closes it. Rewrites the failure Playwright
  * reports for missing Linux libraries into the command that installs them.

@@ -7,17 +7,26 @@ locally, and the app you record never needs it as a dependency.
 
 ## Install
 
-Install it once per machine, not per project:
+Nothing is added to the project you record. Pick one:
 
-```bash
-git clone <this repo> ~/Projects/agent-video-recorder
-cd ~/Projects/agent-video-recorder && pnpm install
-npm install -g .     # puts `avr` on PATH (linked, so pulls take effect)
-avr doctor           # checks ffmpeg/libx264 and Chromium
-```
+1. **Claude Code plugin.** It adds the `record-video` skill (see
+   [Agent integration](#agent-integration)), which runs the CLI through `npx`:
+
+   ```
+   /plugin marketplace add krav4enkodm/agent-video-recorder
+   /plugin install agent-video-recorder@agent-video-recorder
+   ```
+
+2. **Any shell.** Run it through `npx`, or install the `avr` command globally:
+
+   ```bash
+   npx -y agent-video-recorder@0.1 record x.scenario.ts
+   npm i -g agent-video-recorder   # then: avr record x.scenario.ts
+   ```
 
 The first `avr record` downloads the Chromium build that matches the bundled
-Playwright (one-time, about 170 MB). To download it ahead of time, run
+Playwright (one-time, about 170 MB). `avr doctor` checks for ffmpeg with
+libx264 and Chromium without downloading anything. To download it ahead of time, run
 `avr install`. On Linux, `avr install --with-deps` also installs the system
 libraries Chromium needs (it runs `sudo`). Set `AVR_NO_DOWNLOAD=1` to turn off
 the automatic download.
@@ -55,6 +64,7 @@ export default defineScenario({
 ```bash
 avr record path/to/checkout.scenario.ts [--out video.mp4] \
   [--resolution 720p|1080p|1440p] [--scale 1|2] [--fps 30|60] [--pacing fast|normal|slow] [--base-url URL]
+avr contact-sheet video.mp4 --out sheet.png [--every 2] [--cols 3]   # PNG grid of frames
 avr doctor   # checks ffmpeg/libx264 and Chromium
 ```
 
@@ -118,13 +128,10 @@ what is fixed, is in [docs/configuration.md](docs/configuration.md).
 ## Agent integration
 
 `skills/record-video/SKILL.md` teaches a coding agent the whole loop:
-storyboard, scenario file, `avr record`, checking the video, and handing it
-over. It names no tools specific to one agent. For Claude Code, link it into
-your user skills so every project has it:
-
-```bash
-ln -s ~/Projects/agent-video-recorder/skills/record-video ~/.claude/skills/record-video
-```
+storyboard, scenario file, recording, checking the video with a contact sheet,
+and handing it over. It runs the CLI with `npx -y agent-video-recorder@0.1`
+and names no tools specific to one agent. Claude Code gets it from the plugin
+(see [Install](#install)); other agents can load the file as is.
 
 ## Requirements
 
@@ -182,6 +189,16 @@ Wayland session, and agent-run recordings don't need a window.
   recorded page while recording.
 
 ## Development
+
+To use a local checkout as the global `avr`:
+
+```bash
+pnpm install && pnpm build
+npm link    # `avr` now runs this checkout; `npm unlink -g agent-video-recorder` undoes it
+```
+
+To try the plugin from a checkout, run `/plugin marketplace add ./` in Claude
+Code from the repo root, then install `agent-video-recorder@agent-video-recorder`.
 
 ```bash
 pnpm typecheck

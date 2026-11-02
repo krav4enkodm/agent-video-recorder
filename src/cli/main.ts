@@ -18,7 +18,12 @@ import { resolveSize } from '../lib/options'
 import { Recorder } from '../lib/recorder'
 import { isScenario, type Scenario } from '../lib/scenario'
 import { VERSION } from '../lib/version'
-import { checkChromiumLaunch, ensureChromium } from './chromium'
+import { doctorChromium, ensureChromium } from './chromium'
+import {
+  type ContactSheetFlags,
+  makeContactSheet,
+  parseContactSheetFlags,
+} from './contact-sheet'
 import { planRecording, type RecordFlags } from './options'
 
 /** Runs the CLI and resolves to the process exit code. */
@@ -51,6 +56,19 @@ export async function main(argv: string[]): Promise<number> {
     .option('--base-url <url>', 'base URL for relative navigation')
     .action(async (scenarioPath: string, flags: RecordFlags) => {
       exitCode = await record(scenarioPath, flags)
+    })
+
+  program
+    .command('contact-sheet')
+    .description(
+      'Save a PNG grid of frames from a video, to check a recording at a glance. Prints the PNG path.',
+    )
+    .argument('<video>', 'video file, e.g. the MP4 from `avr record`')
+    .requiredOption('--out <png>', 'PNG path to write')
+    .option('--every <seconds>', 'seconds between frames', '2')
+    .option('--cols <n>', 'frames per row (5 rows at most)', '3')
+    .action(async (video: string, flags: ContactSheetFlags) => {
+      exitCode = await contactSheet(video, flags)
     })
 
   program
@@ -141,6 +159,24 @@ async function record(
     return 1
   } finally {
     await browser.close()
+  }
+}
+
+async function contactSheet(
+  video: string,
+  flags: ContactSheetFlags,
+): Promise<number> {
+  try {
+    const sheet = await makeContactSheet(
+      video,
+      flags.out,
+      parseContactSheetFlags(flags),
+    )
+    process.stdout.write(`${sheet}\n`)
+    return 0
+  } catch (error) {
+    reportError(error, 'FFMPEG_FAILED')
+    return 1
   }
 }
 
@@ -236,15 +272,13 @@ async function doctor(): Promise<number> {
     ['ffmpeg with libx264', doctorFfmpeg],
     [
       'Chromium for Playwright',
-      async () => {
-        const executable = chromium.executablePath()
-        if (!fs.existsSync(executable)) {
-          throw new Error(
-            `Not installed at ${executable}. Run \`avr install\`.`,
-          )
-        }
-        await checkChromiumLaunch(() => chromium.launch({ headless: true }))
-      },
+      () =>
+        doctorChromium({
+          executablePath: chromium.executablePath(),
+          allowDownload: !downloadsDisabled(process.env),
+          launch: () => chromium.launch({ headless: true }),
+          displayPath: tildify,
+        }),
     ],
   ]
   let failed = 0
