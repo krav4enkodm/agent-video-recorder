@@ -18,6 +18,7 @@ import { resolveSize } from '../lib/options'
 import { Recorder } from '../lib/recorder'
 import { isScenario, type Scenario } from '../lib/scenario'
 import { VERSION } from '../lib/version'
+import { checkChromiumLaunch, ensureChromium } from './chromium'
 import { planRecording, type RecordFlags } from './options'
 
 /** Runs the CLI and resolves to the process exit code. */
@@ -57,8 +58,12 @@ export async function main(argv: string[]): Promise<number> {
     .description(
       'Download the Chromium build that matches the bundled Playwright version, and a static ffmpeg if no system one has libx264.',
     )
-    .action(async () => {
-      const chromiumCode = install()
+    .option(
+      '--with-deps',
+      'also install the Linux system libraries Chromium needs (runs sudo)',
+    )
+    .action(async (flags: { withDeps?: boolean }) => {
+      const chromiumCode = install({ withDeps: flags.withDeps === true })
       const ffmpegCode = await installFfmpeg()
       exitCode = chromiumCode || ffmpegCode
     })
@@ -91,6 +96,18 @@ async function record(
     )
   } catch (error) {
     reportError(error, 'SCENARIO_INVALID')
+    return 1
+  }
+
+  try {
+    ensureChromium({
+      executablePath: chromium.executablePath(),
+      allowDownload: process.env['AVR_NO_DOWNLOAD'] !== '1',
+      install: () => install({ withDeps: false }),
+      log: (line) => process.stderr.write(`${line}\n`),
+    })
+  } catch (error) {
+    reportError(error, 'CHROMIUM_NOT_FOUND')
     return 1
   }
 
@@ -157,13 +174,20 @@ function registerTsx(): void {
 
 // Uses the bundled playwright-core's own installer: `npx playwright install`
 // can fetch a different Playwright version whose Chromium build doesn't match.
-function install(): number {
+// Installer output goes to stderr: `avr record` keeps stdout for its result JSON.
+function install({ withDeps }: { withDeps: boolean }): number {
   const cli = path.join(
     path.dirname(require.resolve('playwright-core/package.json')),
     'cli.js',
   )
-  const result = spawnSync(process.execPath, [cli, 'install', 'chromium'], {
-    stdio: 'inherit',
+  const args = [cli, 'install', ...(withDeps ? ['--with-deps'] : []), 'chromium']
+  if (withDeps) {
+    process.stderr.write(
+      'Installing Chromium and its system libraries (Linux). This runs sudo and may ask for your password.\n',
+    )
+  }
+  const result = spawnSync(process.execPath, args, {
+    stdio: ['ignore', process.stderr, process.stderr],
   })
   return result.status ?? 1
 }
@@ -219,6 +243,7 @@ async function doctor(): Promise<number> {
             `Not installed at ${executable}. Run \`avr install\`.`,
           )
         }
+        await checkChromiumLaunch(() => chromium.launch({ headless: true }))
       },
     ],
   ]
