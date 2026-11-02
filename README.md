@@ -13,9 +13,14 @@ Install it once per machine, not per project:
 git clone <this repo> ~/Projects/agent-video-recorder
 cd ~/Projects/agent-video-recorder && pnpm install
 npm install -g .     # puts `avr` on PATH (linked, so pulls take effect)
-avr install          # downloads the Chromium build matching the bundled Playwright
 avr doctor           # checks ffmpeg/libx264 and Chromium
 ```
+
+The first `avr record` downloads the Chromium build that matches the bundled
+Playwright (one-time, about 170 MB). To download it ahead of time, run
+`avr install`. On Linux, `avr install --with-deps` also installs the system
+libraries Chromium needs (it runs `sudo`). Set `AVR_NO_DOWNLOAD=1` to turn off
+the automatic download.
 
 Scenario files need no imports, so any project can be recorded without adding
 this package to it.
@@ -124,7 +129,10 @@ ln -s ~/Projects/agent-video-recorder/skills/record-video ~/.claude/skills/recor
 ## Requirements
 
 - Node.js 22
-- Chromium for the bundled `playwright-core` (pinned), installed with `avr install`
+- Chromium for the bundled `playwright-core` (pinned). The first `avr record`
+  downloads it; `avr install` is optional.
+- On Linux, the system libraries Chromium needs. `avr doctor` prints the command
+  that installs them, or run `avr install --with-deps`.
 - Optional: `ffmpeg` with the `libx264` encoder on `PATH`, or set `AVR_FFMPEG_PATH`.
   Without one, avr downloads a static ffmpeg build (GPL, ~20–30 MB) to its cache
   on first record (Linux and macOS, x64 and arm64). `AVR_NO_DOWNLOAD=1` turns

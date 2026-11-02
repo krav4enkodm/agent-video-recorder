@@ -161,6 +161,52 @@ describe('avr CLI', () => {
   })
 })
 
+// Each test points PLAYWRIGHT_BROWSERS_PATH at an empty temp dir, so Chromium
+// looks uninstalled. SLOW: the first test downloads Chromium (~170 MB).
+describe('avr record on a machine without Chromium', () => {
+  let browsersDir: string
+  let outDir: string
+
+  beforeEach(() => {
+    browsersDir = fs.mkdtempSync(path.join(os.tmpdir(), 'avr-browsers-'))
+    outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'avr-first-run-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(browsersDir, { recursive: true, force: true })
+    fs.rmSync(outDir, { recursive: true, force: true })
+  })
+
+  it('downloads Chromium, records, and prints only the result JSON on stdout (slow: ~170 MB download)', async () => {
+    const out = path.join(outDir, 'first-run.mp4')
+    const run = await avr(
+      ['record', path.join(FIXTURES, 'demo.scenario.ts'), '--out', out],
+      { PLAYWRIGHT_BROWSERS_PATH: browsersDir, AVR_NO_DOWNLOAD: '' },
+      540_000,
+    )
+
+    expect(run.stderr).toContain('Downloading Chromium for Playwright')
+    expect(run.code).toBe(0)
+    const lines = run.stdout.split('\n').filter((line) => line.length > 0)
+    expect(lines).toHaveLength(1)
+    expect(JSON.parse(lines[0] ?? '')).toMatchObject({ path: out })
+    expect(probe(out).codec_name).toBe('h264')
+  }, 600_000)
+
+  it('fails naming `avr install` when AVR_NO_DOWNLOAD=1', async () => {
+    const run = await avr(
+      ['record', path.join(FIXTURES, 'demo.scenario.ts')],
+      { PLAYWRIGHT_BROWSERS_PATH: browsersDir, AVR_NO_DOWNLOAD: '1' },
+    )
+
+    expect(run.code).toBe(1)
+    expect(run.stderr).toContain('avr install')
+    expect(run.stderr).not.toContain('Downloading Chromium')
+    expect(run.stdout).toBe('')
+    expect(fs.readdirSync(browsersDir)).toEqual([])
+  })
+})
+
 /** Playwright Test refuses to run when it sees Jest's worker variable. */
 function withoutJestWorkerId(extra: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const env = { ...process.env, ...extra }
