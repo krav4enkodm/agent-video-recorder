@@ -82,11 +82,12 @@ describe('Recorder pacing (Chromium + ffmpeg)', () => {
   it('does not wait for infinite animations', async () => {
     // The fixture's ticker bar animates forever.
     const rec = await startRecording({
-      pacing: { ...NO_PAUSES, settleTimeoutMs: 5000 },
+      pacing: { ...NO_PAUSES, settleTimeoutMs: 10_000 },
     })
     const started = Date.now()
     await rec.click(page.getByRole('button', { name: 'Next step' }))
-    expect(Date.now() - started).toBeLessThan(1500)
+    // Far below the settle timeout, with headroom for a loaded CI runner.
+    expect(Date.now() - started).toBeLessThan(4000)
   })
 
   it('applies per-action pauses', async () => {
@@ -105,16 +106,19 @@ describe('Recorder pacing (Chromium + ffmpeg)', () => {
 
   it('takes longer the slower the preset', async () => {
     const elapsed: Record<string, number> = {}
-    for (const pacing of ['fast', 'normal', 'slow'] as const) {
+    // Slowest first, so warm-up cost lands on the run expected to be longest.
+    // No settle wait: on a loaded runner it varies by seconds and drowns out
+    // the preset's own pauses, which are what this test compares.
+    for (const preset of ['slow', 'normal', 'fast'] as const) {
       await page.goto(FIXTURE_URL)
-      const rec = await startRecording({ pacing })
+      const rec = await startRecording({ pacing: { preset, settleTimeoutMs: 0 } })
       const started = Date.now()
       await rec.hover(page.getByLabel('Project name'))
       await rec.type(page.getByLabel('Project name'), 'Ab')
       await rec.selectOption(page.getByLabel('Template'), 'roadmap')
       await rec.click(page.getByRole('button', { name: 'Show details' }))
       await rec.press('Tab')
-      elapsed[pacing] = Date.now() - started
+      elapsed[preset] = Date.now() - started
       await rec.stop({ holdMs: 0 })
     }
     expect(elapsed['fast']).toBeLessThan(elapsed['normal'] ?? 0)

@@ -3,13 +3,12 @@ import * as os from 'os'
 import * as path from 'path'
 import { chromium, type Browser, type Page } from 'playwright-core'
 
+import { eventually } from '../../test/poll'
 import { Recorder } from './recorder'
 import type { NarrationPosition } from './narration'
 
 const FIXTURE_URL = `file://${path.resolve(__dirname, '../../test/fixtures/demo-app.html')}`
 const VIEWPORT = { width: 1920, height: 1080 }
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe('Recorder narration (Chromium + ffmpeg)', () => {
   let browser: Browser
@@ -79,16 +78,14 @@ describe('Recorder narration (Chromium + ffmpeg)', () => {
       return 42
     })
     expect(result).toBe(42)
-    await sleep(300)
-    expect(await narration()).toBeNull()
+    await eventually(async () => expect(await narration()).toBeNull())
 
     await expect(
       recorder.step('This step fails', async () => {
         throw new Error('boom')
       }),
     ).rejects.toThrow('boom')
-    await sleep(300)
-    expect(await narration()).toBeNull()
+    await eventually(async () => expect(await narration()).toBeNull())
   })
 
   it('keeps a step caption up long enough to read', async () => {
@@ -98,10 +95,11 @@ describe('Recorder narration (Chromium + ffmpeg)', () => {
   })
 
   it('auto-hides a caption with durationMs', async () => {
+    const shownAt = Date.now()
     await recorder.narrate('Brief', { durationMs: 1000 })
     expect((await narration())?.text).toBe('Brief')
-    await sleep(1300)
-    expect(await narration()).toBeNull()
+    await eventually(async () => expect(await narration()).toBeNull())
+    expect(Date.now() - shownAt).toBeGreaterThanOrEqual(1000)
   })
 
   it('does nothing before start()', async () => {
