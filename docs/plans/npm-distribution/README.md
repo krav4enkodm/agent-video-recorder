@@ -15,7 +15,7 @@ Size: project (6 tickets). No tracker; one Markdown file per ticket.
 - npm name `agent-video-recorder` is free (`npm view` → 404 on 2026-11-02).
 - MIT license. First release `0.1.0`; the skill pins `npx -y agent-video-recorder@0.1`.
 - ffmpeg fallback is a lazy download of a pinned static build into the user cache, not the `ffmpeg-static` package.
-- Public repo on the personal GitHub account: `<github-user>/agent-video-recorder` (username filled in at setup, ticket 02).
+- Public repo on the personal GitHub account: `krav4enkodm/agent-video-recorder` (created 2026-11-02).
 - Same repo is the plugin marketplace: `.claude-plugin/marketplace.json` +
   `.claude-plugin/plugin.json` at the root, existing `skills/` is picked up.
 

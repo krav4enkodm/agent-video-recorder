@@ -26,7 +26,7 @@ the user installs nothing else.
   in `src/cli/main.ts`, running the resolved ffmpeg (03) with today's filter
   `fps=1/<every>,scale=640:-1,tile=<cols>x5`. Prints the PNG path.
 - `README.md` "Install": two paths —
-  1. Claude Code: `/plugin marketplace add <github-user>/agent-video-recorder`,
+  1. Claude Code: `/plugin marketplace add krav4enkodm/agent-video-recorder`,
      `/plugin install agent-video-recorder@agent-video-recorder`.
   2. Any shell: `npx -y agent-video-recorder@0.1 record x.scenario.ts`, or
      `npm i -g agent-video-recorder`.
