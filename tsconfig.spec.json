@@ -22,6 +22,7 @@
     "src/**/*.spec.ts",
     "src/**/*.d.ts",
     "test/**/*.ts",
+    "scripts/**/*.spec.ts",
     "test/**/*.tsx"
   ],
   "references": [

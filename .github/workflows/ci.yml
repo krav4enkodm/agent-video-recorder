@@ -4,9 +4,18 @@ on:
   push:
     branches: [main]
   pull_request:
+  # release.yml re-runs these checks before publishing.
+  workflow_call:
+    inputs:
+      os:
+        description: JSON array of runner labels to test on.
+        type: string
+        default: '["ubuntu-latest", "macos-latest"]'
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # github.workflow is the caller's name under workflow_call, so a release run
+  # on main never cancels (or is cancelled by) a push-to-main CI run.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -15,8 +24,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-latest is arm64.
-        os: [ubuntu-latest, macos-latest]
+        # macos-latest is arm64. inputs.os is empty outside workflow_call.
+        os: ${{ fromJSON(inputs.os || '["ubuntu-latest", "macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
