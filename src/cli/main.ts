@@ -123,8 +123,12 @@ async function loadScenario(file: string): Promise<Scenario> {
   if (!fs.existsSync(file)) {
     throw new Error(`Scenario file not found: ${file}`)
   }
-  // CommonJS loading (tsx is registered by bin/avr.cjs) keeps extensionless
-  // and directory imports working, which ESM resolution rejects.
+  // tsx compiles scenario files (the package itself ships compiled JS). A
+  // global registration, unlike tsx.require(), leaves resolved paths
+  // untouched: its ?namespace= suffix broke packages that locate files with
+  // require.resolve (e.g. esbuild's binary). CommonJS loading keeps
+  // extensionless and directory imports working, which ESM resolution rejects.
+  registerTsx()
   const mod = createRequire(__filename)(file)
   const exported = mod?.default ?? mod
   if (!isScenario(exported)) {
@@ -133,6 +137,14 @@ async function loadScenario(file: string): Promise<Scenario> {
     )
   }
   return exported
+}
+
+let tsxRegistered = false
+
+function registerTsx(): void {
+  if (tsxRegistered) return
+  require('tsx/cjs/api').register()
+  tsxRegistered = true
 }
 
 // Uses the bundled playwright-core's own installer: `npx playwright install`
