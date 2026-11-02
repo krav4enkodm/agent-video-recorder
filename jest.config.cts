@@ -14,9 +14,10 @@ module.exports = {
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'html'],
   // Integration specs need Chromium and ffmpeg; they run via `pnpm test:integration`.
-  // src/test.ts is the Playwright fixture module, not a test file.
+  // dist/ holds the build output. src/test.ts is the Playwright fixture module, not a test file.
   testPathIgnorePatterns: [
     '/node_modules/',
+    '<rootDir>/dist/',
     '\\.int\\.spec\\.ts$',
     '/src/test\\.ts$',
   ],

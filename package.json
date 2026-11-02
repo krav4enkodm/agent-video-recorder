@@ -1,24 +1,66 @@
 {
   "name": "agent-video-recorder",
-  "version": "0.0.1",
-  "private": true,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "version": "0.1.0",
+  "description": "Record polished demo videos of web apps from Playwright scripts, built for AI coding agents.",
+  "keywords": [
+    "playwright",
+    "video",
+    "screencast",
+    "demo",
+    "recording",
+    "mp4",
+    "ai-agents",
+    "claude-code"
+  ],
+  "license": "MIT",
+  "author": "Dmytro Kravchenko",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krav4enkodm/agent-video-recorder.git"
+  },
+  "homepage": "https://github.com/krav4enkodm/agent-video-recorder#readme",
+  "bugs": {
+    "url": "https://github.com/krav4enkodm/agent-video-recorder/issues"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
     "avr": "./bin/avr.cjs"
   },
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./test": {
-      "types": "./src/test.ts",
-      "import": "./src/test.ts",
-      "default": "./src/test.ts"
+      "types": "./dist/test.d.ts",
+      "require": "./dist/test.js",
+      "default": "./dist/test.js"
     },
     "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "!dist/tsconfig.lib.tsbuildinfo",
+    "!dist/**/*.d.ts.map",
+    "bin",
+    "README.md",
+    "LICENSE",
+    "docs/configuration.md"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -b tsconfig.lib.json && node scripts/build.mjs",
+    "prepack": "pnpm build",
+    "test": "jest -c jest.config.cts",
+    "pretest:integration": "pnpm build",
+    "test:integration": "jest -c jest.integration.config.cts",
+    "test:pack": "bash scripts/smoke-pack.sh",
+    "typecheck": "tsc -b",
+    "avr": "node bin/avr.cjs"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.62.1 <2"
@@ -27,6 +69,11 @@
     "@playwright/test": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "playwright-core": "1.64.1",
+    "tsx": "^4.23.11"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
@@ -41,20 +88,5 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "typescript": "5.9.3"
-  },
-  "dependencies": {
-    "commander": "^15.0.0",
-    "playwright-core": "1.64.1",
-    "tsx": "^4.23.11"
-  },
-  "description": "Record polished demo videos of web apps from Playwright scripts, built for AI coding agents.",
-  "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "test": "jest -c jest.config.cts",
-    "test:integration": "jest -c jest.integration.config.cts",
-    "typecheck": "tsc -b",
-    "avr": "node bin/avr.cjs"
   }
 }
