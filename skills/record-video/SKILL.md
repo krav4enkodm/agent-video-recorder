@@ -108,8 +108,8 @@ npx -y agent-video-recorder@0.1 record <scratch>/<name>.scenario.ts --out <scrat
 
 Options: `--resolution 720p|1080p|1440p` (default 1080p), `--scale 2` (same
 layout, twice the pixels; sharper on 4K screens), `--fps 30|60` (default
-60), `--pacing fast|normal|slow`, `--base-url URL`. On success, the last
-JSON line on stdout is the result (`path`, `durationMs`, …). On failure, the
+60), `--pacing fast|normal|slow`, `--base-url URL`. On success, stdout is
+one JSON line, the result (`path`, `durationMs`, …); logs go to stderr. On failure, the
 CLI exits 1, prints `error: <CODE>: <message>` and keeps a partial video.
 Fix the scenario using the table below and record again.
 
@@ -118,7 +118,8 @@ Fix the scenario using the table below and record again.
 | `SCENARIO_INVALID` | File missing, or no default export with a `run` function |
 | `SCENARIO_FAILED` | `setup` or `run` threw: read the message (usually a locator that matched nothing or a timeout), check the partial video, fix the step |
 | `INVALID_OPTIONS` | Bad flag or `recorder` option value; the message names it |
-| `CHROMIUM_NOT_FOUND` | Chromium couldn't be downloaded or started; the message says why (often missing Linux libraries, as in step 1) |
+| `CHROMIUM_NOT_FOUND` | Chromium isn't installed and couldn't be downloaded; the message says why |
+| `CHROMIUM_LAUNCH_FAILED` | Chromium is installed but didn't start; the message says why (often missing Linux libraries, as in step 1) |
 | `FFMPEG_NOT_FOUND` / `FFMPEG_NO_H264` / `FFMPEG_DOWNLOAD_FAILED` | No usable ffmpeg and the download failed or is off (`AVR_NO_DOWNLOAD=1`). Install ffmpeg with libx264, or set `AVR_FFMPEG_PATH` |
 | `FFMPEG_FAILED` | Encoder crashed; the message includes ffmpeg's output |
 | `NO_FRAMES` | Chromium sent no frames: the page never rendered. Check the URL and that the app is up |

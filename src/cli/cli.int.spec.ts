@@ -67,13 +67,35 @@ describe('avr CLI', () => {
     ])
 
     expect(run.code).toBe(0)
-    const result = JSON.parse(run.stdout.trim().split('\n').at(-1) ?? '')
-    expect(result).toMatchObject({ path: out, width: 1920, height: 1080 })
+    const lines = run.stdout.trim().split('\n')
+    expect(lines).toHaveLength(1)
+    expect(JSON.parse(lines[0] ?? '')).toMatchObject({
+      path: out,
+      width: 1920,
+      height: 1080,
+    })
     expect(probe(out)).toEqual({
       codec_name: 'h264',
       width: 1920,
       height: 1080,
     })
+  })
+
+  it('keeps scenario logs and skipped-effect diagnostics off stdout', async () => {
+    const out = path.join(outDir, 'noisy.mp4')
+    const run = await avr(
+      ['record', path.join(FIXTURES, 'noisy.scenario.ts'), '--out', out],
+      { AVR_DEBUG: '1' },
+    )
+
+    expect(run.code).toBe(0)
+    const lines = run.stdout.trim().split('\n')
+    expect(lines).toHaveLength(1)
+    expect(JSON.parse(lines[0] ?? '')).toMatchObject({ path: out })
+    expect(run.stderr).toContain('log from the scenario')
+    expect(run.stderr).toContain(
+      '[agent-video-recorder] overlay effect skipped:',
+    )
   })
 
   it('exits 1 with the error and keeps the partial video when the scenario fails', async () => {
@@ -252,6 +274,33 @@ describe('avr record on a machine without Chromium', () => {
     expect(run.stdout).toMatch(
       /fail {2}Chromium for Playwright: Not installed at .*Run `avr install`\./,
     )
+  })
+
+  it('reports a Chromium that fails to launch as CHROMIUM_LAUNCH_FAILED', async () => {
+    const env = { PLAYWRIGHT_BROWSERS_PATH: browsersDir, AVR_NO_DOWNLOAD: '1' }
+    // A fake `chrome` passes the "is it installed" check; launch() then runs
+    // the headless shell, which is missing.
+    const chrome = execFileSync(
+      process.execPath,
+      ['-p', "require('playwright-core').chromium.executablePath()"],
+      { cwd: PACKAGE_ROOT, env: { ...process.env, ...env } },
+    )
+      .toString()
+      .trim()
+    fs.mkdirSync(path.dirname(chrome), { recursive: true })
+    fs.writeFileSync(chrome, '#!/bin/sh\nexit 1\n', { mode: 0o755 })
+
+    const run = await avr(
+      ['record', path.join(FIXTURES, 'demo.scenario.ts')],
+      env,
+    )
+
+    expect(run.code).toBe(1)
+    expect(run.stderr).toMatch(/^error: CHROMIUM_LAUNCH_FAILED: \S/m)
+    // One line from launchFailureMessage, not Playwright's banner or a stack.
+    expect(run.stderr).not.toMatch(/^\s+at /m)
+    expect(run.stderr).not.toContain('╔')
+    expect(run.stdout).toBe('')
   })
 
   it('fails naming `avr install` when AVR_NO_DOWNLOAD=1', async () => {

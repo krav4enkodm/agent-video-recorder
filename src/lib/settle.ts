@@ -1,3 +1,4 @@
+import { debug } from './debug'
 import type { Page } from 'playwright-core'
 
 /**
@@ -20,11 +21,9 @@ export async function settle(
         remaining,
       ))
     if (!finished) {
-      console.debug(
-        `[agent-video-recorder] UI still animating after ${timeoutMs} ms; continuing.`,
-      )
+      debug(`UI still animating after ${timeoutMs} ms; continuing.`)
     }
   } catch (error) {
-    console.debug('[agent-video-recorder] settle wait cut short:', error)
+    debug('settle wait cut short:', error)
   }
 }

@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { debug } from '../debug'
 import {
   cursorDuration,
   cursorPath,
@@ -168,7 +169,7 @@ export class Overlay {
     try {
       return await fn()
     } catch (error) {
-      console.debug('[agent-video-recorder] overlay effect skipped:', error)
+      debug('overlay effect skipped:', error)
       return undefined
     }
   }
