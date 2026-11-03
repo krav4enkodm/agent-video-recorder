@@ -4,6 +4,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { chromium, type Browser, type Page } from 'playwright-core'
 
+import { Capture } from './capture'
 import { RecorderError } from './errors'
 import { Recorder } from './recorder'
 
@@ -99,6 +100,7 @@ describe('Recorder (Chromium + ffmpeg)', () => {
         height: 1080,
         fps,
       })
+      expect(result.framesDropped).toBe(0)
       expect(result.framesWritten).toBe(
         Math.round((result.durationMs * fps) / 1000),
       )
@@ -171,6 +173,32 @@ describe('Recorder (Chromium + ffmpeg)', () => {
     expect(await page.evaluate(() => '__agentVideoRecorder' in window)).toBe(
       false,
     )
+  })
+
+  it('repeats frames instead of queueing more while ffmpeg is backlogged', async () => {
+    // Takes no input for a second, then encodes normally; with a 1-byte limit
+    // every frame after the first that arrives meanwhile is dropped.
+    const slowFfmpeg = path.join(outDir, 'slow-ffmpeg')
+    fs.writeFileSync(slowFfmpeg, '#!/bin/sh\nsleep 1\nexec ffmpeg "$@"\n', {
+      mode: 0o755,
+    })
+    const output = path.join(outDir, 'backlogged.mp4')
+    const capture = await Capture.start(page, {
+      output,
+      size: { width: 1280, height: 720 },
+      fps: 30,
+      quality: 90,
+      ffmpegPath: slowFfmpeg,
+      maxBacklogBytes: 1,
+    })
+    await sleep(1500)
+    const result = await capture.stop()
+
+    expect(result.framesDropped).toBeGreaterThan(0)
+    expect(result.framesDropped).toBeLessThan(result.framesCaptured)
+    // Timing holds: dropped frames still fill their slots.
+    expect(result.durationMs).toBeGreaterThan(1200)
+    expect(probe(output)).toMatchObject({ codec: 'h264', width: 1280 })
   })
 
   it('fails start() with a clear error when ffmpeg is missing', async () => {

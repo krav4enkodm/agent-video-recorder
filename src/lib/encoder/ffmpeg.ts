@@ -5,6 +5,9 @@ import { RecorderError } from '../errors'
 const STDERR_TAIL_LINES = 20
 const STDERR_MAX_CHARS = 64 * 1024
 
+/** Unencoded frame data the encoder may hold before Capture starts dropping frames. */
+export const MAX_BACKLOG_BYTES = 256 * 1024 * 1024
+
 export function buildFfmpegArgs(fps: number, output: string): string[] {
   return [
     '-loglevel',
@@ -20,8 +23,11 @@ export function buildFfmpegArgs(fps: number, output: string): string[] {
     '-an',
     '-c:v',
     'libx264',
+    // On UI footage veryfast matches medium's quality (SSIM 0.999) at a
+    // smaller size, and encodes ~2.5x faster with few cores, which keeps
+    // scale-2 recordings closer to real time.
     '-preset',
-    'medium',
+    'veryfast',
     '-crf',
     '18',
     // Chromium's JPEGs decode as full-range yuvj420p; convert to the limited
@@ -69,8 +75,16 @@ export class FfmpegEncoder {
   private readonly exited: Promise<number | null>
   private stderr = ''
   private spawnError: Error | undefined
+  /** Frames queued but not yet taken by ffmpeg, with their pending write count. */
+  private readonly queued = new Map<Buffer, number>()
+  private queuedBytes = 0
 
-  constructor(ffmpegPath: string, fps: number, output: string) {
+  constructor(
+    ffmpegPath: string,
+    fps: number,
+    output: string,
+    private readonly maxBacklogBytes = MAX_BACKLOG_BYTES,
+  ) {
     this.process = spawn(ffmpegPath, buildFfmpegArgs(fps, output), {
       stdio: ['pipe', 'ignore', 'pipe'],
     })
@@ -88,10 +102,33 @@ export class FfmpegEncoder {
     })
   }
 
-  /** Queues a frame. Node's stream buffers it, so this never blocks the caller. */
+  /**
+   * Queues a frame. Node's stream buffers it, so this never blocks the caller;
+   * `backlogged` says when ffmpeg is falling too far behind.
+   */
   write(frame: Buffer): void {
     const stdin = this.process.stdin
-    if (stdin?.writable) stdin.write(frame)
+    if (!stdin?.writable) return
+    // Repeated frames share one Buffer, so memory grows only with distinct ones.
+    const pending = this.queued.get(frame) ?? 0
+    if (pending === 0) this.queuedBytes += frame.length
+    this.queued.set(frame, pending + 1)
+    stdin.write(frame, () => this.taken(frame))
+  }
+
+  /** True while the unencoded frames ffmpeg hasn't taken exceed the limit. */
+  get backlogged(): boolean {
+    return this.queuedBytes > this.maxBacklogBytes
+  }
+
+  private taken(frame: Buffer): void {
+    const pending = (this.queued.get(frame) ?? 1) - 1
+    if (pending > 0) {
+      this.queued.set(frame, pending)
+      return
+    }
+    this.queued.delete(frame)
+    this.queuedBytes -= frame.length
   }
 
   async close(): Promise<void> {

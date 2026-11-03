@@ -262,8 +262,13 @@ settings, create `new Recorder(page, { ... })` in the test.
 
 ## Not configurable
 
-- **Output format:** H.264 MP4 only, with libx264 preset `medium`, CRF 18,
+- **Output format:** H.264 MP4 only, with libx264 preset `veryfast`, CRF 18,
   `yuv420p` and limited colour range, and `+faststart`.
+- **Encoder backlog:** when ffmpeg falls behind real time and more than
+  256 MB of frames wait for it, new frames are replaced by repeats of the
+  previous one until it catches up. The video keeps its length and timing but
+  motion stutters; the result's `framesDropped` counts them. `AVR_DEBUG=1`
+  logs when it starts.
 - **Browser:** Chromium only; other engines throw `UNSUPPORTED_BROWSER`.
   Recording is headless-only, because headed Chromium on Wayland sends no
   frames.

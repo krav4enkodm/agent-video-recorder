@@ -128,7 +128,9 @@ Fix the scenario using the table below and record again.
 ## 5. Check the video yourself
 
 Check `durationMs`, `width` and `height` in the result JSON from step 4
-against what you planned. Then make a contact sheet, one frame every 2
+against what you planned. `framesDropped` above 0 means the machine couldn't
+encode fast enough and motion stutters; record again without `--scale 2` or at
+a lower `--resolution`. Then make a contact sheet, one frame every 2
 seconds on a 3-column grid:
 
 ```bash
