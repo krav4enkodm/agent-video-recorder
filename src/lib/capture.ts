@@ -1,5 +1,6 @@
 import { performance } from 'perf_hooks'
 
+import { debug } from './debug'
 import { FfmpegEncoder } from './encoder/ffmpeg'
 import { FrameScheduler } from './encoder/frame-scheduler'
 import { jpegSize } from './encoder/jpeg'
@@ -20,6 +21,11 @@ export interface RecordingResult {
    * a frame when the page changes, so pauses and static pages lower it.
    */
   captureFps: number
+  /**
+   * Frames replaced by a repeat of the previous one because ffmpeg fell too far
+   * behind (see `MAX_BACKLOG_BYTES`). Above 0, motion in the video stutters.
+   */
+  framesDropped: number
 }
 
 export interface CaptureOptions {
@@ -28,6 +34,8 @@ export interface CaptureOptions {
   fps: Fps
   quality: number
   ffmpegPath: string
+  /** Overrides `MAX_BACKLOG_BYTES`; for tests. */
+  maxBacklogBytes?: number
 }
 
 const FIRST_FRAME_TIMEOUT_MS = 5_000
@@ -36,6 +44,9 @@ const FIRST_FRAME_TIMEOUT_MS = 5_000
 export class Capture {
   private readonly scheduler: FrameScheduler
   private framesCaptured = 0
+  private framesDropped = 0
+  /** The last frame handed to the scheduler. */
+  private lastData: Buffer | undefined
   private lastFrame: { timestampMs: number; receivedAt: number } | undefined
 
   private constructor(
@@ -54,6 +65,7 @@ export class Capture {
       options.ffmpegPath,
       options.fps,
       options.output,
+      options.maxBacklogBytes,
     )
     const capture = new Capture(page, encoder, options)
     try {
@@ -92,7 +104,24 @@ export class Capture {
       framesCaptured: this.framesCaptured,
       framesWritten,
       captureFps,
+      framesDropped: this.framesDropped,
     }
+  }
+
+  /**
+   * The frame to encode. While ffmpeg is backlogged it is the previous frame
+   * again: the video keeps its timing and memory stops growing, at the cost of
+   * stutter.
+   */
+  private accept(data: Buffer): Buffer {
+    if (!this.lastData || !this.encoder.backlogged) {
+      this.lastData = data
+      return data
+    }
+    if (this.framesDropped++ === 0) {
+      debug('ffmpeg is falling behind; repeating frames until it catches up.')
+    }
+    return this.lastData
   }
 
   private async waitForFirstFrame(): Promise<void> {
@@ -113,7 +142,7 @@ export class Capture {
           timestampMs: timestamp,
           receivedAt: performance.now(),
         }
-        this.scheduler.push({ data, timestampMs: timestamp })
+        this.scheduler.push({ data: this.accept(data), timestampMs: timestamp })
       },
     })
     const first = await firstFrame

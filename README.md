@@ -167,6 +167,12 @@ so 4K motion repeats frames. A larger `resolution` lays the page out wider
 rather than rendering it sharper; use `scale: 2` for sharpness. Its 3840×2160
 frames have the same ~47 frames/s limit.
 
+Encoding uses libx264's `veryfast` preset. On UI footage it matched `medium`
+visually (SSIM 0.999) at a smaller file, and it is about 2.5× faster on two
+cores, where `medium` encoded a 3840×2160 full-motion stream at only 20
+frames/s. If ffmpeg still falls behind and over 256 MB of frames wait, avr
+repeats frames rather than buffering more (`framesDropped` in the result).
+
 Recording is headless-only: headed Chromium delivered no screencast frames on a
 Wayland session, and agent-run recordings don't need a window.
 
