@@ -122,10 +122,13 @@ export class Recorder {
     this.capture = undefined
     this.page.off('framenavigated', this.onNavigated)
 
-    if (!this.page.isClosed()) await sleep(holdMs ?? this.timing.endHoldMs)
-    const result = await capture.stop()
-    await this.overlay.detach()
-    return result
+    try {
+      if (!this.page.isClosed()) await sleep(holdMs ?? this.timing.endHoldMs)
+      return await capture.stop()
+    } finally {
+      // Also when ffmpeg failed: the caller may keep using the page.
+      await this.overlay.detach()
+    }
   }
 
   /** Glides the cursor to the element, then clicks it with a ripple. */

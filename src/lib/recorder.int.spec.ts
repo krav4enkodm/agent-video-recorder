@@ -142,6 +142,37 @@ describe('Recorder (Chromium + ffmpeg)', () => {
     await recorder.stop()
   })
 
+  it('removes the overlay even when ffmpeg fails at stop()', async () => {
+    // Passes the libx264 check, then fails the encode.
+    const fakeFfmpeg = path.join(outDir, 'failing-ffmpeg')
+    fs.writeFileSync(
+      fakeFfmpeg,
+      '#!/bin/sh\n' +
+        'if [ "$2" = "-encoders" ]; then echo " V..... libx264"; exit 0; fi\n' +
+        'cat >/dev/null\necho "encode failed on purpose" >&2\nexit 1\n',
+      { mode: 0o755 },
+    )
+    const recorder = new Recorder(page, {
+      ffmpegPath: fakeFfmpeg,
+      output: path.join(outDir, 'failing-ffmpeg.mp4'),
+    })
+    await recorder.start()
+
+    await expect(recorder.stop({ holdMs: 0 })).rejects.toMatchObject({
+      code: 'FFMPEG_FAILED',
+    })
+    expect(recorder.isRecording).toBe(false)
+    const state = await page.evaluate(() =>
+      window.__agentVideoRecorder.inspect(),
+    )
+    expect(state.visible).toBe(false)
+    // The init script is gone too: a reload doesn't bring the runtime back.
+    await page.reload()
+    expect(await page.evaluate(() => '__agentVideoRecorder' in window)).toBe(
+      false,
+    )
+  })
+
   it('fails start() with a clear error when ffmpeg is missing', async () => {
     const recorder = new Recorder(page, {
       ffmpegPath: '/nonexistent/ffmpeg',

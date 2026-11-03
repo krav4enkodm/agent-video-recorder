@@ -1,11 +1,12 @@
 import { spawnSync } from 'child_process'
+import { Console } from 'console'
 import * as fs from 'fs'
 import { createRequire } from 'module'
 import * as os from 'os'
 import * as path from 'path'
 
 import { Command } from 'commander'
-import { chromium } from 'playwright-core'
+import { chromium, type Browser } from 'playwright-core'
 
 import {
   bundledFfmpegPath,
@@ -18,7 +19,11 @@ import { resolveSize } from '../lib/options'
 import { Recorder } from '../lib/recorder'
 import { isScenario, type Scenario } from '../lib/scenario'
 import { VERSION } from '../lib/version'
-import { doctorChromium, ensureChromium } from './chromium'
+import {
+  doctorChromium,
+  ensureChromium,
+  launchFailureMessage,
+} from './chromium'
 import {
   type ContactSheetFlags,
   makeContactSheet,
@@ -101,6 +106,13 @@ async function record(
   scenarioPath: string,
   flags: RecordFlags,
 ): Promise<number> {
+  // stdout carries only the result JSON, so the scenario's own console output
+  // (and any library logging) goes to stderr.
+  globalThis.console = new Console({
+    stdout: process.stderr,
+    stderr: process.stderr,
+  })
+
   let scenario: Scenario
   let plan: ReturnType<typeof planRecording>
   try {
@@ -132,9 +144,19 @@ async function record(
   const scale = plan.recorder.scale ?? 1
   // Chromium caps screencast frames at CSS pixels unless the whole browser
   // renders at the higher density.
-  const browser = await chromium.launch({
-    args: scale === 1 ? [] : [`--force-device-scale-factor=${scale}`],
-  })
+  let browser: Browser
+  try {
+    browser = await chromium.launch({
+      args: scale === 1 ? [] : [`--force-device-scale-factor=${scale}`],
+    })
+  } catch (error) {
+    // Same message as `avr doctor`, e.g. the command for missing Linux libraries.
+    reportError(
+      new Error(launchFailureMessage(error)),
+      'CHROMIUM_LAUNCH_FAILED',
+    )
+    return 1
+  }
   let recorder: Recorder | undefined
   try {
     const context = await browser.newContext({

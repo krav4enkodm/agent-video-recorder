@@ -220,9 +220,12 @@ avr doctor
 | `--base-url` | `baseURL` | none |
 
 Custom resolutions, effect styles and pacing overrides can only be set in the
-scenario's `recorder` field. On success the last stdout line is the
-`RecordingResult` as JSON. On failure the CLI exits 1, prints
-`error: <CODE>: <message>` and keeps a partial video.
+scenario's `recorder` field. On success stdout holds exactly one line, the
+`RecordingResult` as JSON; everything else, including the scenario's own
+`console` output, goes to stderr. On failure the CLI exits 1, prints
+`error: <CODE>: <message>` and keeps a partial video. A Chromium that is
+installed but fails to start is `CHROMIUM_LAUNCH_FAILED`, with the same message
+as `avr doctor` (for missing Linux libraries, the command that installs them).
 
 `avr contact-sheet` writes one PNG of frames from a video, sampled every
 `--every` seconds (default 2), scaled to 640 px wide and tiled `--cols` wide
@@ -254,6 +257,7 @@ settings, create `new Recorder(page, { ... })` in the test.
 |---|---|
 | `AVR_FFMPEG_PATH` | ffmpeg binary, when the `ffmpegPath` option is not set |
 | `AVR_NO_DOWNLOAD` | `1` turns off automatic downloads: the static ffmpeg (like `ffmpegDownload: false`) and Chromium on the first `avr record`. Recording then fails with an error instead. |
+| `AVR_DEBUG` | `1` logs effects and settle waits that were skipped (for example after a navigation replaced the page) to stderr. Silent otherwise. |
 | `AVR_CACHE_DIR` | Directory for the downloaded static ffmpeg, instead of `~/.cache/agent-video-recorder` (Linux, or `$XDG_CACHE_HOME/agent-video-recorder`) or `~/Library/Caches/agent-video-recorder` (macOS) |
 
 ## Not configurable
